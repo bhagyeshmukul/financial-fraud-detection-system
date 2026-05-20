@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+backend/models/*.joblib
+backend/reports/*.json
+backend/test_api.db
+node_modules/
+frontend/dist/
