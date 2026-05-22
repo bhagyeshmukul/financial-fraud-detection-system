@@ -1,3 +1,4 @@
+// Root app component that renders the fraud dashboard page.
 import FraudDashboard from "./pages/FraudDashboard";
 
 function App() {

@@ -1,3 +1,5 @@
+"""Dataset loading utilities with synthetic fallback for local experimentation."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,6 +12,7 @@ from src.utils import FEATURE_COLUMNS
 
 
 def _build_synthetic_dataset(n_samples: int = 12000, random_state: int = 42) -> pd.DataFrame:
+    """Generate an imbalanced synthetic fraud-like dataset with expected columns."""
     feature_count = len(FEATURE_COLUMNS)
     X, y = make_classification(
         n_samples=n_samples,
@@ -30,6 +33,7 @@ def _build_synthetic_dataset(n_samples: int = 12000, random_state: int = 42) -> 
 
 
 def load_transaction_data(path: str | Path | None = None) -> pd.DataFrame:
+    """Load transaction dataset from disk, otherwise return synthetic sample data."""
     data_dir = Path(__file__).resolve().parents[1] / "data"
     data_path = Path(path) if path else data_dir / "creditcard.csv"
     

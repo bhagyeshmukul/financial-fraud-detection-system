@@ -1,120 +1,206 @@
 ### Financial Fraud Detection System
 
-- End-to-end production-style ML + full-stack project for detecting fraudulent financial transactions.
-- Stack: `FastAPI`, `scikit-learn`, `XGBoost`, `SMOTE`, `PostgreSQL`, `Alembic`, `React`, `Vite`, `Docker Compose`.
+A full-stack fraud detection platform that scores card transactions in near real time, classifies risk (`Low`, `Medium`, `High`), and stores prediction logs for audit and analyst review.
 
-### Project Overview
+### Business Logic and Value
 
-- This project predicts whether a transaction is fraudulent and returns probability + risk level.
-- It also stores every prediction request/response trace in PostgreSQL for auditability.
+- Financial fraud is a low-frequency, high-impact problem.
+- The system helps triage suspicious activity quickly by combining:
+  - ML-based probability scoring
+  - Business-friendly risk-level mapping
+  - Persistent prediction logging in PostgreSQL
+- It is designed for demo-to-production style workflows: model training, API serving, UI consumption, and historical observability.
 
-### Business Problem
+### Tech Stack
 
-- Fraud losses are significant; delayed detection increases financial and reputational risk.
-- The system provides near real-time fraud scoring to support analyst workflows.
+- Backend/API: `FastAPI`, `Uvicorn`, `Pydantic`
+- ML: `pandas`, `numpy`, `scikit-learn`, `xgboost`, `imbalanced-learn (SMOTE)`, `joblib`
+- Database: `PostgreSQL`, `SQLAlchemy`, `Alembic`
+- Frontend: `React`, `Vite`, `Recharts`
+- Containerization: `Docker`, `Docker Compose`
 
-### Why Imbalanced Classification Matters
+### Core Features
 
-- Fraud events are rare relative to normal transactions.
-- A model can achieve high accuracy by predicting only non-fraud, which is not useful.
+- `POST /predict-fraud` returns:
+  - `prediction_label` (`Fraud` or `Not Fraud`)
+  - `fraud_probability`
+  - `risk_level` (`Low`/`Medium`/`High`)
+- `GET /prediction-logs` returns recent persisted predictions.
+- `GET /sample-transactions` provides low/medium/high scenario payloads for easy testing.
+- Automatic schema migration in container startup (`alembic upgrade head`).
 
-### Why Accuracy Alone Is Misleading
+### What the Model Input Means
 
-- Accuracy ignores false negatives/false positives balance on skewed datasets.
-- This project prioritizes `recall`, `precision`, `F1-score`, and `ROC-AUC` for model selection.
+The API accepts exactly `30` numeric inputs:
 
-### Dataset
+- `Time`
+- `V1` to `V28`
+- `Amount`
 
-- Primary target: Kaggle Credit Card Fraud dataset (`creditcard.csv`).
-- Fallback: synthetic realistic imbalanced data generation inside `backend/src/data_loader.py`.
+`V1..V28` are anonymized PCA-derived signals from the dataset. They do not map to named business fields directly, but the model learns useful fraud/non-fraud behavior patterns from combinations of these variables.
 
-### Architecture
+### Project Structure (Quick View)
 
-- `backend/src/`: ML data pipeline, training, evaluation, and prediction utilities.
-- `backend/app/`: FastAPI API, service layer, SQLAlchemy models, DB session wiring.
-- `backend/alembic/`: migration setup with versioned schema creation.
-- `frontend/src/`: React dashboard + API integration.
+- `backend/app/` → API routes, schemas, DB integration, service layer
+- `backend/src/` → ML pipeline (load/preprocess/train/evaluate/predict)
+- `backend/alembic/` → schema migration scripts
+- `backend/data/` → datasets used for model training experiments
+- `frontend/src/` → React UI and API integrations
 
-### ML Workflow
+For a full architecture and flow explanation, see `PROJECT_ARCHITECTURE.md`.
 
-- Load data → clean + fill missing values → scale features.
-- Stratified split and apply `SMOTE` on training set.
-- Train: Logistic Regression, Random Forest, XGBoost.
-- Evaluate: Accuracy, Precision, Recall, F1, ROC-AUC, Confusion Matrix, PR curve.
-- Select best model by weighted ranking favoring recall/precision/F1/ROC-AUC.
-- Persist model via `joblib` and save reports to `backend/reports/`.
+### Prerequisites
 
-### Database and Migration Design
+- Python `3.11+` recommended
+- Node.js `18+` and `npm`
+- PostgreSQL `16+` (for local non-Docker setup)
+- Docker Desktop (if using Docker flow)
 
-- Schema managed by Alembic migration, not by runtime `create_all` as primary method.
-- Main table: `fraud_prediction_logs` with payload, score, label, risk level, and timestamp.
+### Environment Variables
 
-### Alembic Migration
+The backend reads database configuration from `DATABASE_URL`.
 
-- Migration file: `backend/alembic/versions/001_create_fraud_prediction_logs_table.py`.
-- Startup sequence in backend container runs `alembic upgrade head` before API launch.
+#### Local backend example
 
-### API Endpoints
+```bash
+export DATABASE_URL="postgresql+psycopg2://fraud_user:fraud_password@localhost:5432/fraud_db"
+```
 
-- `POST /predict-fraud`
-  - Input: transaction features JSON (`Time`, `V1..V28`, `Amount`)
-  - Output: `prediction_label`, `fraud_probability`, `risk_level`
-  - Side effect: inserts log row into PostgreSQL.
-- `GET /prediction-logs`
-  - Returns latest prediction logs.
+#### Docker Compose variables (`.env` in project root)
 
-### Frontend Screenshots (Placeholder)
+```env
+POSTGRES_USER=fraud_user
+POSTGRES_PASSWORD=fraud_password
+POSTGRES_DB=fraud_db
+```
 
-- Add screenshots under `docs/screenshots/` and reference here for portfolio presentation.
+`docker-compose.yml` uses these values to construct backend `DATABASE_URL` automatically.
 
-### Run Backend (Local)
+### Run Locally (without Docker)
 
-- `cd backend`
-- `pip install -r requirements.txt`
-- `alembic upgrade head`
-- `uvicorn app.main:app --reload`
+#### 1) Backend
 
-### Run Frontend (Local)
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload
+```
 
-- `cd frontend`
-- `npm install`
-- `npm run dev`
+Backend URL: `http://localhost:8000`
+
+#### 2) Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend URL: `http://localhost:5173`
 
 ### Run with Docker Compose
 
-- From project root: `docker compose up --build`
-- Services:
-  - Backend: `http://localhost:8000`
-  - Frontend: `http://localhost:5173`
-  - PostgreSQL: `localhost:5432`
+From project root:
 
-### Run Alembic Migrations Manually
+```bash
+docker compose up --build
+```
 
-- `cd backend`
-- `alembic upgrade head`
-- `alembic downgrade -1`
+Services:
 
-### Run Tests
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
 
-- `cd backend`
-- `pytest -q`
+### API Usage Examples
 
-### Resume Bullet Points
+#### Health check
 
-- Built a production-style fraud detection platform with model training, serving, and audit logging.
-- Implemented robust model selection for imbalanced classification using recall/F1/ROC-AUC priorities.
-- Designed migration-driven PostgreSQL schema lifecycle with Alembic in Dockerized deployment.
+```bash
+curl -X GET "http://localhost:8000/"
+```
 
-### Interview Explanation
+#### Get sample scenarios
 
-- Explain end-to-end flow: data prep, SMOTE, model comparison, API serving, and DB observability.
-- Highlight why imbalanced metrics and threshold/risk mapping matter in fraud systems.
+```bash
+curl -X GET "http://localhost:8000/sample-transactions"
+```
 
-### Interview Q&A (Examples)
+#### Predict fraud
 
-- Q: Why not select by accuracy?
-  - A: In highly imbalanced fraud detection, accuracy can hide poor fraud recall.
-- Q: Why use SMOTE?
-  - A: To improve minority-class learning signal during training without altering test distribution.
-- Q: Why Alembic over `create_all`?
-  - A: Versioned, auditable, repeatable schema evolution across environments.
+```bash
+curl -X POST "http://localhost:8000/predict-fraud" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Time": 865,
+    "V1": -0.5374802762,
+    "V2": 8.5411202134,
+    "V3": 1.7172749111,
+    "V4": -1.142444037,
+    "V5": 0.8710858686,
+    "V6": -2.379534301,
+    "V7": 3.6324085605,
+    "V8": 1.4689942064,
+    "V9": 2.3140508421,
+    "V10": 0.6080150786,
+    "V11": 3.7338869247,
+    "V12": -0.2240221028,
+    "V13": -1.2259402182,
+    "V14": -0.1872434624,
+    "V15": 0.6574995181,
+    "V16": -1.1501334386,
+    "V17": -1.0286127611,
+    "V18": -0.0294838246,
+    "V19": -1.4228495895,
+    "V20": -0.8863804803,
+    "V21": -1.4464451487,
+    "V22": -1.3059306083,
+    "V23": -2.8105028234,
+    "V24": -1.5235354845,
+    "V25": 1.5057483529,
+    "V26": -1.7950689266,
+    "V27": -0.5417854048,
+    "V28": -2.0273416245,
+    "Amount": 4.4646831979
+  }'
+```
+
+### Training and Model Lifecycle
+
+- Training entrypoint: `backend/src/train.py`
+- Default dataset: `backend/data/creditcard.csv`
+- Pipeline summary:
+  1. Load + clean data
+  2. Split train/test
+  3. Apply `SMOTE` on training set
+  4. Train candidate models (`LogisticRegression`, `RandomForestClassifier`, `XGBClassifier`)
+  5. Evaluate and select best model by weighted ranking (recall/F1/ROC-AUC oriented)
+  6. Save artifact to `backend/models/best_model.joblib`
+- Inference uses stored scaler/model and a learned decision threshold for classification.
+
+### Testing
+
+```bash
+cd backend
+pytest -q
+```
+
+### Troubleshooting
+
+- `npm: command not found`
+  - Install Node.js and ensure `npm` is on your `PATH`.
+- `No module named pytest` or dependency import errors
+  - Activate your backend virtual environment and run `pip install -r requirements.txt`.
+- DB connection failures
+  - Verify `DATABASE_URL` (local) or `POSTGRES_*` values in `.env` (Docker).
+- Migration issues
+  - Run `alembic upgrade head` from `backend/` and verify DB credentials.
+
+### Interview-Ready Highlights
+
+- Built an imbalanced-fraud pipeline using metrics beyond accuracy (`Recall`, `F1`, `ROC-AUC`).
+- Combined model serving with auditable persistence for operational traceability.
+- Used migration-driven schema management (`Alembic`) for repeatable environments.

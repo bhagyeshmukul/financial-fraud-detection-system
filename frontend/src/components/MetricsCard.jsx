@@ -1,3 +1,4 @@
+// Card component to display key model-quality metrics.
 function MetricsCard({ metrics }) {
   if (!metrics) return null;
   return (

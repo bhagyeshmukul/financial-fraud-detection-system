@@ -1,3 +1,5 @@
+"""Data cleaning, splitting, scaling, and class-balancing utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,9 +21,11 @@ class PreprocessArtifacts:
 
 
 def preprocess_data(df: pd.DataFrame, random_state: int = 42) -> PreprocessArtifacts:
+    """Prepare train/test artifacts used by training and evaluation routines."""
     cleaned = df.copy()
     cleaned = cleaned.drop_duplicates()
-    cleaned = cleaned.fillna(cleaned.median(numeric_only=True))
+    numeric_medians = cleaned.median(numeric_only=True)
+    cleaned = cleaned.where(~cleaned.isna(), numeric_medians, axis=1)
 
     X = cleaned[FEATURE_COLUMNS]
     y = cleaned["Class"]

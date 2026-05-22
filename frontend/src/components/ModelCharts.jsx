@@ -1,6 +1,8 @@
+// Interactive chart panel for quick visual intuition of model behavior curves.
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 function ModelCharts() {
+  // Placeholder points representing a model performance curve shape.
   const points = [
     { x: 0, y: 0 },
     { x: 0.2, y: 0.55 },
@@ -12,18 +14,18 @@ function ModelCharts() {
 
   return (
     <div className="card">
-      <h3>ROC-AUC / Precision-Recall Placeholder</h3>
+      <h3>Model Performance Trend</h3>
       <div className="chart-box">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points}>
             <XAxis dataKey="x" />
             <YAxis />
             <Tooltip />
-            <Line type="monotone" dataKey="y" stroke="#1f6feb" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="y" stroke="#4f46e5" strokeWidth={3} dot />
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <p className="muted">Confusion Matrix display can be rendered from backend metrics report in production integration.</p>
+      <p className="muted">This chart is a visual placeholder and can be replaced with live ROC/PR metrics from backend reports.</p>
     </div>
   );
 }

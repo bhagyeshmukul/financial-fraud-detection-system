@@ -1,3 +1,4 @@
+// Result panel showing latest model prediction output.
 function PredictionResult({ result }) {
   if (!result) return null;
 

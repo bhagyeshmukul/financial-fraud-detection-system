@@ -1,3 +1,5 @@
+"""Application entry point for fraud prediction and logging APIs."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,4 +20,5 @@ app.include_router(fraud_router)
 
 @app.get("/")
 def health():
+    """Return a basic health payload for uptime checks."""
     return {"status": "ok", "service": "financial-fraud-detection-system"}

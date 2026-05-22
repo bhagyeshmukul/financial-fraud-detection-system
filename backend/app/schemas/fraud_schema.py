@@ -1,3 +1,5 @@
+"""Pydantic schemas for fraud prediction request/response and log output."""
+
 from datetime import datetime
 from typing import Any
 
@@ -41,6 +43,18 @@ class FraudPredictionResponse(BaseModel):
     prediction_label: str
     fraud_probability: float
     risk_level: str
+
+
+class SampleTransaction(BaseModel):
+    id: str
+    title: str
+    threat_level: str
+    story: str
+    payload: FraudPredictionRequest
+
+
+class SampleTransactionResponse(BaseModel):
+    samples: list[SampleTransaction]
 
 
 class FraudPredictionLogOut(BaseModel):

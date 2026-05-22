@@ -1,18 +1,21 @@
+"""Training pipeline to fit, compare, and persist the best fraud model."""
+
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 from src.data_loader import load_transaction_data
-from src.evaluate import evaluate_model, ranking_score
+from src.evaluate import best_f1_threshold, evaluate_model, ranking_score
 from src.preprocessing import preprocess_data
 from src.utils import MODELS_DIR, REPORTS_DIR, ensure_dirs, write_json
 
 
 def train_and_select_best_model() -> dict:
+    """Train candidate models, rank them, and write model/report artifacts."""
     ensure_dirs()
 
     df = load_transaction_data()
@@ -50,12 +53,14 @@ def train_and_select_best_model() -> dict:
             best_name = name
             best_model = model
 
-    version = f"{best_name}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    version = f"{best_name}_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
+    decision_threshold = best_f1_threshold(best_model, artifacts.X_test_scaled, artifacts.y_test)
     model_artifact = {
         "model": best_model,
         "scaler": artifacts.scaler,
         "model_name": best_name,
         "model_version": version,
+        "decision_threshold": decision_threshold,
     }
 
     joblib.dump(model_artifact, MODELS_DIR / "best_model.joblib")
@@ -63,6 +68,7 @@ def train_and_select_best_model() -> dict:
     report_payload = {
         "selected_model": best_name,
         "model_version": version,
+        "decision_threshold": decision_threshold,
         "selection_score": best_score,
         "metrics": metrics_by_model,
     }

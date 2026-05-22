@@ -1,3 +1,4 @@
+// Static sample table to illustrate expected prediction output shape.
 function TransactionTable() {
   const sampleRows = [
     { id: 1, amount: 220.4, probability: 0.03, label: "Not Fraud" },
