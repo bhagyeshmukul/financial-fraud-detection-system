@@ -1,185 +1,139 @@
-### Financial Fraud Detection System
+### Project Architecture and Request Flow Guide
 
-A full-stack fraud detection platform that scores card transactions in near real time, classifies risk (`Low`, `Medium`, `High`), and stores prediction logs for audit and analyst review.
+This document explains how the project is structured, how requests move through the system, how the ML model is trained, how the database is created/migrated, and what interview questions you can expect.
 
-### Business Logic and Value
+### 1) High-Level System Architecture
 
-- Financial fraud is a low-frequency, high-impact problem.
-- The system helps triage suspicious activity quickly by combining:
-  - ML-based probability scoring
-  - Business-friendly risk-level mapping
-  - Persistent prediction logging in PostgreSQL
-- It is designed for demo-to-production style workflows: model training, API serving, UI consumption, and historical observability.
+```mermaid
+flowchart LR
+    User[User in Browser] --> FE[React + Vite Frontend]
+    FE -->|POST /predict-fraud| API[FastAPI Backend]
+    FE -->|GET /prediction-logs| API
+    FE -->|GET /sample-transactions| API
 
-### Tech Stack
+    API --> Service[Service Layer\nrun_prediction_and_log]
+    Service --> Inference[Inference Engine\npredict_transaction]
+    Inference --> Artifact[(Model Artifact\nbest_model.joblib)]
 
-- Backend/API: `FastAPI`, `Uvicorn`, `Pydantic`
-- ML: `pandas`, `numpy`, `scikit-learn`, `xgboost`, `imbalanced-learn (SMOTE)`, `joblib`
-- Database: `PostgreSQL`, `SQLAlchemy`, `Alembic`
-- Frontend: `React`, `Vite`, `Recharts`
-- Containerization: `Docker`, `Docker Compose`
+    Service --> DB[(PostgreSQL\nfraud_prediction_logs)]
+    API --> DB
 
-### Core Features
-
-- `POST /predict-fraud` returns:
-  - `prediction_label` (`Fraud` or `Not Fraud`)
-  - `fraud_probability`
-  - `risk_level` (`Low`/`Medium`/`High`)
-- `GET /prediction-logs` returns recent persisted predictions.
-- `GET /sample-transactions` provides low/medium/high scenario payloads for easy testing.
-- Automatic schema migration in container startup (`alembic upgrade head`).
-
-### What the Model Input Means
-
-The API accepts exactly `30` numeric inputs:
-
-- `Time`
-- `V1` to `V28`
-- `Amount`
-
-`V1..V28` are anonymized PCA-derived signals from the dataset. They do not map to named business fields directly, but the model learns useful fraud/non-fraud behavior patterns from combinations of these variables.
-
-### Project Structure (Quick View)
-
-- `backend/app/` → API routes, schemas, DB integration, service layer
-- `backend/src/` → ML pipeline (load/preprocess/train/evaluate/predict)
-- `backend/alembic/` → schema migration scripts
-- `backend/data/` → datasets used for model training experiments
-- `frontend/src/` → React UI and API integrations
-
-For a full architecture and flow explanation, see `PROJECT_ARCHITECTURE.md`.
-
-### Prerequisites
-
-- Python `3.11+` recommended
-- Node.js `18+` and `npm`
-- PostgreSQL `16+` (for local non-Docker setup)
-- Docker Desktop (if using Docker flow)
-
-### Environment Variables
-
-The backend reads database configuration from `DATABASE_URL`.
-
-#### Local backend example
-
-```bash
-export DATABASE_URL="postgresql+psycopg2://fraud_user:fraud_password@localhost:5432/fraud_db"
+    Train[Training Pipeline\nbackend/src/train.py] --> Artifact
+    Train --> Reports[(Metrics Reports\nbackend/reports)]
 ```
 
-#### Docker Compose variables (`.env` in project root)
+### 2) Directory-by-Directory Structure
 
-```env
-POSTGRES_USER=fraud_user
-POSTGRES_PASSWORD=fraud_password
-POSTGRES_DB=fraud_db
-```
+### Root
 
-`docker-compose.yml` uses these values to construct backend `DATABASE_URL` automatically.
+- `README.md`
+  - Product-facing overview, setup instructions, and API quick-start.
+- `PROJECT_ARCHITECTURE.md`
+  - Detailed engineering architecture and flow reference (this file).
+- `docker-compose.yml`
+  - Multi-container orchestration (`postgres`, `backend`, `frontend`).
 
-### Run Locally (without Docker)
+### `backend/`
 
-#### 1) Backend
+- `Dockerfile`
+  - Builds backend image with dependencies and app code.
+- `entrypoint.sh`
+  - Runtime bootstrap for backend container.
+  - Runs `alembic upgrade head` and then starts `uvicorn`.
+- `requirements.txt`
+  - Python dependencies for API, ML, DB, and tests.
+- `alembic.ini`
+  - Alembic configuration.
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
-```
+#### `backend/app/` (Application Layer)
 
-Backend URL: `http://localhost:8000`
+- `main.py`
+  - FastAPI app initialization and CORS setup.
+- `api/`
+  - HTTP endpoints (`/predict-fraud`, `/prediction-logs`, `/sample-transactions`).
+- `schemas/`
+  - Pydantic request/response models and API contracts.
+- `services/`
+  - Business-service orchestration (run prediction + persist logs).
+  - Contains sample payload provider for scenario testing.
+- `db/`
+  - SQLAlchemy model definitions, DB URL resolution, and session handling.
 
-#### 2) Frontend
+#### `backend/src/` (ML Pipeline Layer)
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+- `data_loader.py`
+  - Loads dataset (`creditcard.csv`) with synthetic fallback.
+- `preprocessing.py`
+  - Cleans data, handles missing values, performs train/test prep.
+- `train.py`
+  - Trains candidate models, evaluates, selects best, stores artifact.
+- `evaluate.py`
+  - Metrics, model comparison utilities, and threshold selection support.
+- `predict.py`
+  - Inference using trained model + scaler + decision threshold.
+- `utils.py`
+  - Shared constants and reusable helper functions (e.g., feature order).
 
-Frontend URL: `http://localhost:5173`
+#### `backend/alembic/`
 
-### Run with Docker Compose
+- `env.py`
+  - Runtime migration environment setup.
+  - Reads DB URL and applies migration context.
+- `versions/`
+  - Versioned migration scripts.
+  - Includes table creation for `fraud_prediction_logs`.
 
-From project root:
+#### Other backend folders
 
-```bash
-docker compose up --build
-```
+- `backend/data/`
+  - Input datasets (`creditcard.csv`, optional experiment files).
+- `backend/models/`
+  - Saved trained model artifact (`best_model.joblib`).
+- `backend/reports/`
+  - Model evaluation outputs (metrics report JSON).
+- `backend/tests/`
+  - API and ML pipeline test cases.
 
-Services:
+### `frontend/`
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000`
-- PostgreSQL: `localhost:5432`
+- `package.json`
+  - JavaScript dependencies and scripts.
+- `vite.config.js`
+  - Vite dev/build configuration.
+- `index.html`
+  - Vite HTML entrypoint.
 
-### API Usage Examples
+#### `frontend/src/`
 
-#### Health check
+- `main.jsx`, `App.jsx`
+  - React bootstrap and top-level composition.
+- `pages/FraudDashboard.jsx`
+  - Main dashboard page and orchestration of widgets.
+- `components/`
+  - Input form, charts, result card, metrics card, transaction log table.
+- `services/api.js`
+  - API client calls to backend endpoints.
+- `styles.css`
+  - UI styling and interaction presentation.
 
-```bash
-curl -X GET "http://localhost:8000/"
-```
+### 3) Request Lifecycle (What Happens on `POST /predict-fraud`)
 
-#### Get sample scenarios
+1. User enters `Time`, `V1..V28`, and `Amount` in UI.
+2. Frontend calls backend endpoint `POST /predict-fraud` with JSON payload.
+3. FastAPI validates payload via `FraudPredictionRequest` schema.
+4. Route delegates to service function (`run_prediction_and_log`).
+5. Service calls inference (`predict_transaction`) in ML layer.
+6. Inference:
+   - Reorders payload to expected feature order.
+   - Applies saved `StandardScaler`.
+   - Predicts fraud probability from loaded model artifact.
+   - Applies learned decision threshold to produce `Fraud`/`Not Fraud` label.
+   - Maps probability to risk bucket (`Low`/`Medium`/`High`).
+7. Service stores prediction details in PostgreSQL (`fraud_prediction_logs`).
+8. API returns prediction response to frontend.
+9. Frontend updates UI and can fetch latest logs via `GET /prediction-logs`.
 
-```bash
-curl -X GET "http://localhost:8000/sample-transactions"
-```
-
-#### Predict fraud
-
-```bash
-curl -X POST "http://localhost:8000/predict-fraud" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Time": 865,
-    "V1": -0.5374802762,
-    "V2": 8.5411202134,
-    "V3": 1.7172749111,
-    "V4": -1.142444037,
-    "V5": 0.8710858686,
-    "V6": -2.379534301,
-    "V7": 3.6324085605,
-    "V8": 1.4689942064,
-    "V9": 2.3140508421,
-    "V10": 0.6080150786,
-    "V11": 3.7338869247,
-    "V12": -0.2240221028,
-    "V13": -1.2259402182,
-    "V14": -0.1872434624,
-    "V15": 0.6574995181,
-    "V16": -1.1501334386,
-    "V17": -1.0286127611,
-    "V18": -0.0294838246,
-    "V19": -1.4228495895,
-    "V20": -0.8863804803,
-    "V21": -1.4464451487,
-    "V22": -1.3059306083,
-    "V23": -2.8105028234,
-    "V24": -1.5235354845,
-    "V25": 1.5057483529,
-    "V26": -1.7950689266,
-    "V27": -0.5417854048,
-    "V28": -2.0273416245,
-    "Amount": 4.4646831979
-  }'
-```
-
-### Training and Model Lifecycle
-
-- Training entrypoint: `backend/src/train.py`
-- Default dataset: `backend/data/creditcard.csv`
-- Pipeline summary:
-  1. Load + clean data
-  2. Split train/test
-  3. Apply `SMOTE` on training set
-  4. Train candidate models (`LogisticRegression`, optional `XGBClassifier`)
-  5. Evaluate and select best model by weighted ranking (recall/F1/ROC-AUC oriented)
-  6. Save artifact to `backend/models/best_model.joblib`
-- Inference uses stored scaler/model and a learned decision threshold for classification.
+### 4) Model Training Flow (How the Model Was Trained)
 
 #### E2E Training Control Flow
 
@@ -380,6 +334,21 @@ Developer
 | - best_model.joblib is ready for src.predict.predict_transaction()              |
 |--------------------------------------------------------------------------------|
 ```
+
+The training pipeline is a command-style control flow, not a web request. `train.py` owns orchestration, delegates data loading to `data_loader.py`, preprocessing to `preprocessing.py`, metric and threshold logic to `evaluate.py`, and file-system paths/report writing to `utils.py`. Its durable outputs are the inference artifact at `backend/models/best_model.joblib` and the model reports under `backend/reports/`.
+
+1. **Load data** from `backend/data/creditcard.csv`.
+2. **Preprocess**: deduplicate, handle missing values, split features/labels.
+3. **Scale and split**: prepare train/test sets.
+4. **Handle imbalance**: apply `SMOTE` to training data.
+5. **Train candidates**:
+   - `LogisticRegression`
+   - `XGBClassifier` when `xgboost` imports successfully
+6. **Evaluate** using fraud-relevant metrics (`Precision`, `Recall`, `F1`, `ROC-AUC`).
+7. **Select best model** by weighted ranking (not plain accuracy).
+8. **Calibrate decision threshold** (stored in artifact as `decision_threshold`).
+9. **Persist artifact** (`model`, `scaler`, `model_name`, `model_version`, `decision_threshold`) via `joblib`.
+10. **Write reports** to `backend/reports/metrics_report.json`.
 
 #### API Entrypoint to Training Fallback Control Flow
 
@@ -679,26 +648,121 @@ Developer
 |--------------------------------------------------------------------------------|
 ```
 
-### Testing
+### 5) Libraries Used and Why
+
+- `FastAPI`: high-performance API framework with Pydantic validation.
+- `SQLAlchemy`: ORM for DB interactions and model persistence mapping.
+- `Alembic`: migration/versioning for repeatable schema evolution.
+- `pandas`/`numpy`: data processing and matrix operations.
+- `scikit-learn`: preprocessing, baseline modeling, metrics.
+- `xgboost`: boosted tree model candidate for tabular fraud data.
+- `imbalanced-learn` (`SMOTE`): improves learning signal on rare fraud class.
+- `joblib`: serializes/deserializes trained artifacts.
+- `React` + `Vite`: modern frontend rendering and fast dev workflow.
+- `Recharts`: model-facing visualization components.
+
+### 6) How Database Is Created and Used
+
+### Creation/Migration
+
+- Schema is controlled by Alembic migration scripts.
+- In Docker flow:
+  - `entrypoint.sh` automatically runs `alembic upgrade head` before API startup.
+- In local flow:
+  - Run `alembic upgrade head` manually from `backend/`.
+
+### Runtime usage
+
+- Backend stores each prediction in `fraud_prediction_logs` table.
+- This table supports traceability, monitoring, and UI history display.
+
+### 7) How Calls Are Made (Terminal and PyCharm)
+
+### Terminal
 
 ```bash
-cd backend
-pytest -q
+curl -X GET "http://localhost:8000/sample-transactions"
 ```
 
-### Troubleshooting
+```bash
+curl -X POST "http://localhost:8000/predict-fraud" \
+  -H "Content-Type: application/json" \
+  -d '{"Time":865, "V1":-0.5374802762, "V2":8.5411202134, "V3":1.7172749111, "V4":-1.142444037, "V5":0.8710858686, "V6":-2.379534301, "V7":3.6324085605, "V8":1.4689942064, "V9":2.3140508421, "V10":0.6080150786, "V11":3.7338869247, "V12":-0.2240221028, "V13":-1.2259402182, "V14":-0.1872434624, "V15":0.6574995181, "V16":-1.1501334386, "V17":-1.0286127611, "V18":-0.0294838246, "V19":-1.4228495895, "V20":-0.8863804803, "V21":-1.4464451487, "V22":-1.3059306083, "V23":-2.8105028234, "V24":-1.5235354845, "V25":1.5057483529, "V26":-1.7950689266, "V27":-0.5417854048, "V28":-2.0273416245, "Amount":4.4646831979}'
+```
 
-- `npm: command not found`
-  - Install Node.js and ensure `npm` is on your `PATH`.
-- `No module named pytest` or dependency import errors
-  - Activate your backend virtual environment and run `pip install -r requirements.txt`.
-- DB connection failures
-  - Verify `DATABASE_URL` (local) or `POSTGRES_*` values in `.env` (Docker).
-- Migration issues
-  - Run `alembic upgrade head` from `backend/` and verify DB credentials.
+### PyCharm HTTP Client
 
-### Interview-Ready Highlights
+Create `api_calls.http` in project root and run via gutter icon:
 
-- Built an imbalanced-fraud pipeline using metrics beyond accuracy (`Recall`, `F1`, `ROC-AUC`).
-- Combined model serving with auditable persistence for operational traceability.
-- Used migration-driven schema management (`Alembic`) for repeatable environments.
+```http
+### Health
+GET http://localhost:8000/
+
+### Samples
+GET http://localhost:8000/sample-transactions
+
+### Predict
+POST http://localhost:8000/predict-fraud
+Content-Type: application/json
+
+{
+  "Time": 865,
+  "V1": -0.5374802762,
+  "V2": 8.5411202134,
+  "V3": 1.7172749111,
+  "V4": -1.142444037,
+  "V5": 0.8710858686,
+  "V6": -2.379534301,
+  "V7": 3.6324085605,
+  "V8": 1.4689942064,
+  "V9": 2.3140508421,
+  "V10": 0.6080150786,
+  "V11": 3.7338869247,
+  "V12": -0.2240221028,
+  "V13": -1.2259402182,
+  "V14": -0.1872434624,
+  "V15": 0.6574995181,
+  "V16": -1.1501334386,
+  "V17": -1.0286127611,
+  "V18": -0.0294838246,
+  "V19": -1.4228495895,
+  "V20": -0.8863804803,
+  "V21": -1.4464451487,
+  "V22": -1.3059306083,
+  "V23": -2.8105028234,
+  "V24": -1.5235354845,
+  "V25": 1.5057483529,
+  "V26": -1.7950689266,
+  "V27": -0.5417854048,
+  "V28": -2.0273416245,
+  "Amount": 4.4646831979
+}
+```
+
+### 8) Interview Questions and Suggested Answers
+
+1. **Why not use accuracy as the main metric?**
+   - Fraud data is highly imbalanced; accuracy can be high even if fraud recall is poor.
+
+2. **Why use SMOTE?**
+   - It improves minority-class representation during training and helps the model learn fraud boundaries.
+
+3. **How do you choose the final model?**
+   - Candidate models are compared and ranked by fraud-relevant metrics with weighted scoring.
+
+4. **How are labels decided at inference time?**
+   - Probability is converted to class using a stored decision threshold learned from validation data.
+
+5. **How is schema managed safely across environments?**
+   - Through Alembic versioned migrations (`upgrade head`) instead of ad-hoc table creation.
+
+6. **How do frontend and backend communicate?**
+   - Frontend sends REST calls to FastAPI via `frontend/src/services/api.js`.
+
+7. **How are predictions auditable?**
+   - Every prediction request/response is logged in PostgreSQL and exposed via `GET /prediction-logs`.
+
+### 9) Practical Notes
+
+- If `best_model.joblib` does not exist, training/inference path will regenerate model artifact based on project logic.
+- If API behavior changes after retraining, review updated threshold/model metadata in saved artifact.
