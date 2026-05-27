@@ -25,13 +25,13 @@ def predict_transaction(payload: dict[str, float]) -> dict[str, Any]:
     artifact = load_model_artifact()
     model = artifact["model"]
     scaler = artifact["scaler"]
-    decision_threshold = float(artifact.get("decision_threshold", 0.5))
+    decision_threshold = 0.45
 
     ordered_data = {col: payload[col] for col in FEATURE_COLUMNS}
     features = pd.DataFrame([ordered_data])
     scaled = scaler.transform(features)
     fraud_probability = float(model.predict_proba(scaled)[0][1])
-    label = "Fraud" if fraud_probability >= decision_threshold else "Not Fraud"
+    label = "Fraud" if fraud_probability > decision_threshold else "Not Fraud"
 
     return {
         "prediction_label": label,
