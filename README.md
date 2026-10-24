@@ -1,704 +1,174 @@
-### Financial Fraud Detection System
+# Financial Fraud Detection System
 
-A full-stack fraud detection platform that scores card transactions in near real time, classifies risk (`Low`, `Medium`, `High`), and stores prediction logs for audit and analyst review.
+A working portfolio application for **fraud analysis, transaction scoring, analyst review, and demonstrations**. It retains Python, Pandas, Scikit-Learn, Logistic Regression, Random Forest, XGBoost and SMOTE, alongside FastAPI, PostgreSQL, SQLAlchemy, Alembic, React, Vite, Recharts and Docker.
 
-### Business Logic and Value
+The system estimates risk and records decisions. It does not move money or connect to a bank. Its two dataset profiles have independent models, reports and input meanings.
 
-- Financial fraud is a low-frequency, high-impact problem.
-- The system helps triage suspicious activity quickly by combining:
-  - ML-based probability scoring
-  - Business-friendly risk-level mapping
-  - Persistent prediction logging in PostgreSQL
-- It is designed for demo-to-production style workflows: model training, API serving, UI consumption, and historical observability.
+See [current router results](docs/ROUTER_RESULTS.md) and the [EC2/ECS AWS walkthrough](docs/AWS_DEPLOYMENT.md).
 
-### Tech Stack
+Auto evaluates a learned candidate router, then uses the stronger eligible individual when routing does not improve validation recall.
 
-- Backend/API: `FastAPI`, `Uvicorn`, `Pydantic`
-- ML: `pandas`, `numpy`, `scikit-learn`, `xgboost`, `imbalanced-learn (SMOTE)`, `joblib`
-- Database: `PostgreSQL`, `SQLAlchemy`, `Alembic`
-- Frontend: `React`, `Vite`, `Recharts`
-- Containerization: `Docker`, `Docker Compose`
+## Workspaces
 
-### Core Features
+- **Analysis:** real held-out metrics, all algorithm comparisons, confusion matrix, ROC/PR/calibration curves, distributions, validation feature importance, and labelled CSV scoring.
+- **Live demo:** readable BankSim payments, original validation examples, adjustable replay, and an advanced credit-card input form.
+- **Analyst review:** persistent history, risk/review filters, pagination, notes, append-only review events and CSV export.
+- **Service health:** database/model/report readiness, request counters and measured prediction latency.
 
-- `POST /predict-fraud` returns:
-  - `prediction_label` (`Fraud` or `Not Fraud`)
-  - `fraud_probability`
-  - `risk_level` (`Low`/`Medium`/`High`)
-- `GET /prediction-logs` returns recent persisted predictions.
-- `GET /sample-transactions` provides low/medium/high scenario payloads for easy testing.
-- Automatic schema migration in container startup (`alembic upgrade head`).
+No dashboard metric is a placeholder. Missing reports are displayed as unavailable.
 
-### What the Model Input Means
+## Datasets and honest results
 
-The API accepts exactly `30` numeric inputs:
+| Profile | Original publisher | Raw rows / frauds | Meaning |
+|---|---|---|---|
+| credit_card | [ULB / Worldline](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) | 284,807 / 492 | Real anonymized card transactions from 2013; V1–V28 are supplied PCA components |
+| banksim | [BankSim](https://www.kaggle.com/datasets/ealaxi/banksim1) | 594,643 / 7,200 | Simulated bank payments; customer, merchant, category, amount and day |
 
-- `Time`
-- `V1` to `V28`
-- `Amount`
+Imports retain source/version/license, SHA-256 checksum and class counts. Original source data is downloaded into ignored backend/data/raw, without altering the old CSV/iCloud files in the worktree. Count/schema checks catch accidental sample files; they do not constitute cryptographic publisher attestation. BankSim is CC BY-NC-SA 4.0; retain its attribution and use the publisher's applicable terms.
 
-`V1..V28` are anonymized PCA-derived signals from the dataset. They do not map to named business fields directly, but the model learns useful fraud/non-fraud behavior patterns from combinations of these variables.
+A previous UI displayed 98% accuracy without using its report; the old report recorded 64.6%. Those values are not used by v2. Generated reports in backend/reports/v2 and the dashboard are the source of current results. See [current router results](docs/ROUTER_RESULTS.md); [the earlier baseline](docs/VERIFIED_RESULTS.md) is preserved separately.
 
-### Project Structure (Quick View)
+**94% accuracy is a target, not a hardcoded result.** An always-legitimate classifier can exceed 99% accuracy on these datasets while catching no fraud. Report precision, recall, PR-AUC, average precision and the confusion matrix alongside accuracy. Initial precision/recall goals are 80%; report misses transparently.
 
-- `backend/app/` → API routes, schemas, DB integration, service layer
-- `backend/src/` → ML pipeline (load/preprocess/train/evaluate/predict)
-- `backend/alembic/` → schema migration scripts
-- `backend/data/` → datasets used for model training experiments
-- `frontend/src/` → React UI and API integrations
+## Laptop setup
 
-For a full architecture and flow explanation, see `PROJECT_ARCHITECTURE.md`.
+Use Python 3.11, Node 24 and PostgreSQL 16+ (or Docker). The original .venv is left untouched. In PyCharm, select .venv311/bin/python as the project interpreter; the previous SDK points to Python 3.14. Generated data, environments and runtime artifacts are excluded from project indexing.
 
-### Prerequisites
-
-- Python `3.11+` recommended
-- Node.js `18+` and `npm`
-- PostgreSQL `16+` (for local non-Docker setup)
-- Docker Desktop (if using Docker flow)
-
-### Environment Variables
-
-The backend reads database configuration from `DATABASE_URL`.
-
-#### Local backend example
-
-```bash
-export DATABASE_URL="postgresql+psycopg2://fraud_user:fraud_password@localhost:5432/fraud_db"
+```sh
+uv venv --python 3.11 .venv311
+uv pip install --python .venv311/bin/python -r backend/requirements-dev.txt
+npm --prefix frontend ci
+chmod +x scripts/python scripts/local-db.sh scripts/run-local.sh
 ```
 
-#### Docker Compose variables (`.env` in project root)
+scripts/python uses this environment, sets the backend import path, and exposes the OpenMP runtime shipped with the macOS Scikit-Learn wheel to XGBoost. Linux containers install libgomp1. If using a separately activated Mac interpreter, install libomp or configure its library path; do not silently omit XGBoost.
 
-```env
-POSTGRES_USER=fraud_user
-POSTGRES_PASSWORD=fraud_password
-POSTGRES_DB=fraud_db
+Start an isolated local PostgreSQL instance:
+
+```sh
+./scripts/local-db.sh
+cp .env.example .env
 ```
 
-`docker-compose.yml` uses these values to construct backend `DATABASE_URL` automatically.
+The helper defaults to the PostgreSQL installation at /Library/PostgreSQL/17/bin and port 55432, with its data under ignored .runtime/postgres. Set POSTGRES_BIN / LOCAL_POSTGRES_PORT when needed. This is a loopback-only development instance using local trust authentication. It never changes an existing server. Stop it with `./scripts/local-db.sh stop`.
 
-### Run Locally (without Docker)
+For another PostgreSQL installation, create fraud_db and fraud_test and set DATABASE_URL / TEST_DATABASE_URL accordingly.
 
-#### 1) Backend
+## Import and train
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
+Run profiles sequentially on an 8 GB laptop:
+
+```sh
+./scripts/python -m src.data_loader --profile credit_card
+./scripts/python -m src.data_loader --profile banksim
+./scripts/python -m src.train --profile all
 ```
 
-Backend URL: `http://localhost:8000`
+If direct download is unavailable, download the original CSV from its publisher and run:
+```sh
+./scripts/python -m src.data_loader --profile banksim --source /absolute/path/to/bs140513_032310.csv
+```
 
-#### 2) Frontend
+Training is explicit and can take several minutes. Serving never downloads data, trains a model, or falls back to synthetic data.
 
-```bash
+The pipeline:
+1. Validate labels and time, normalize columns and remove duplicate rows.
+2. Build features using exactly the same functions as inference. BankSim history uses strictly earlier days; no labels or same-day/future observations enter a feature.
+3. Split by chronological time groups: 40% fitting, 10% calibration, 10% router training, 20% validation and 20% final testing. Time-group boundaries mean row percentages can differ.
+4. Fit imputation/scaling only on fitting rows. Apply SMOTE there for credit-card data, or SMOTENC before categorical one-hot encoding for BankSim.
+5. Train Logistic Regression, Random Forest and XGBoost sequentially. Calibrate probability estimates with sigmoid calibration at original class prevalence.
+6. Retain non-resampled XGBoost as a comparison. Train a shallow multi-output decision-tree router on the separate router-training window, estimating squared candidate error with equal total fraud/legitimate training weight. It selects a candidate for transaction patterns, not a named fraud subtype.
+7. Maximize validation recall with precision >=80% and accuracy >=94%. Auto uses routing only for a strict recall improvement over the strongest eligible individual; otherwise it records that individual as its fallback. If no individual qualifies, Auto is unavailable and the manual champion uses an explicitly ineligible F1 fallback.
+8. Evaluate frozen candidates on the historical test period and save every candidate/controller, matching reports, validation examples and label-free reference history before atomically publishing the current pointer. This previously inspected test period is a retrospective comparison, not a fresh independent test.
+
+Scoring offers Auto, champion and individual candidates separately from report inspection. Learned routing consults one candidate per transaction and groups batch rows efficiently. All CV algorithms remain actual trained experiments even when they do not win. Test results are inspected for reporting, not used for another tuning round.
+
+## Run
+
+```sh
+./scripts/run-local.sh
+```
+
+Open http://127.0.0.1:5173. API docs: http://127.0.0.1:8000/docs. The script migrates the database once, then starts the API and Vite. Ctrl-C stops those application processes; the development database remains available.
+
+The demo seeds a fixed earlier-day BankSim history at the first prediction and then adds that session's observations. It is an interactive simulation, not an exact replay benchmark. New sessions isolate customer histories. CSV uploads each get a separate unseeded history, so their behavioural features depend only on earlier rows/days in that upload.
+
+## API
+
+Existing endpoints remain: POST /predict-fraud, GET /prediction-logs, GET /sample-transactions.
+
+New versioned interfaces:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | /api/v1/profiles | Contracts and model availability |
+| GET | /api/v1/profiles/{profile}/evaluation | Matching frozen report |
+| GET | /api/v1/profiles/{profile}/samples | Original validation examples |
+| POST | /api/v1/sessions | Create profile-specific, optionally seeded session |
+| POST | /api/v1/profiles/{profile}/predictions | Validate, score and atomically log |
+| POST | /api/v1/profiles/{profile}/batch-predictions | Multipart CSV with session_id and request_id |
+| GET | /api/v1/predictions | Profile/session/risk/review filters and before_id pagination |
+| GET | /api/v1/predictions/export | Up to 5,000 filtered audit rows |
+| PATCH | /api/v1/predictions/{id}/review | Review state and notes |
+| GET | /api/v1/predictions/{id}/reviews | Append-only review events |
+| GET | /api/v1/operations | Measured operational counters and latency |
+| GET | /health/live, /health/ready | Liveness and dependency readiness |
+
+Single prediction envelope:
+```json
+{
+  "session_id": "UUID returned by session creation",
+  "request_id": "a fresh UUID, reused only for retrying this same request",
+  "model_choice": "auto",
+  "transaction": {"step": 120, "customer": "C1", "merchant": "M1", "category": "es_travel", "amount": 150}
+}
+```
+
+Optional `model_choice` accepts `champion` (default), `auto`, `logistic_regression`, `random_forest`, `xgboost`, or `xgboost_without_resampling`; CSV accepts the same multipart form field. Responses/history/exports retain requested and used candidates, router version, routing status/reason and applied threshold. A changed choice with the same request ID is a conflict.
+
+The response includes the persisted ID, profile, model version, applied thresholds, estimated probability, label, risk, context and processing time. At p >= threshold the result is Fraud/High; p >= threshold/2 is Medium; otherwise Low. Context describes input/history facts, not causal model explanations.
+
+CSV headers must contain the profile inputs, optionally Class or fraud. Known BankSim source fields age/gender/ZIP may also be supplied; they are ignored as predictors. Publisher single-quoted strings are normalized consistently with training. Labels are separated before feature building. Limits: 5 MB / 5,000 rows. Invalid uploads fail atomically. Retries with the same UUID return the stored response; reuse with different data returns 409. Profiles never share sessions or models.
+
+## Tests and traffic
+
+```sh
+# Real PostgreSQL integration tests; fallback SQLite unit tests work without this variable.
+TEST_DATABASE_URL=postgresql+psycopg2://fraud_local@127.0.0.1:55432/fraud_test ./scripts/python -m pytest backend/tests -q
+
+# Start the application first:
+npm --prefix frontend run build
 cd frontend
-npm install
-npm run dev
+npx playwright install chromium
+npm run test:e2e
 ```
 
-Frontend URL: `http://localhost:5173`
+From the project root:
+```sh
+node --test deploy/sites/worker.test.mjs
+./scripts/python scripts/traffic.py --profile credit_card --rps 10 --seconds 60 --pid YOUR_API_PID
+```
 
-### Run with Docker Compose
+Traffic results are written to ignored artifacts/traffic.json, including actual throughput, errors and latency percentiles. Supply the server PID to measure its process-tree RSS. HTTP counters are per-worker; persisted prediction counts and latency samples span workers. Batch timings are amortized per row.
 
-From project root:
+## Containers and later hosting
 
-```bash
+Development:
+```sh
 docker compose up --build
 ```
 
-Services:
+Train on the host first; Compose mounts the completed model/report directories read-only. PostgreSQL readiness gates a one-shot migration service. Development services bind to loopback.
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000`
-- PostgreSQL: `localhost:5432`
-
-### API Usage Examples
-
-#### Health check
-
-```bash
-curl -X GET "http://localhost:8000/"
+Production:
+```sh
+docker compose --env-file .env.production -f docker-compose.production.yml up --build -d
 ```
 
-#### Get sample scenarios
+See [deployment instructions](deploy/README.md) for the complete private container stack and the Sites + Python server path. Production uses a private gateway and server-held API token, never a secret in browser JavaScript. Sites packaging stages locally with `node deploy/sites/build.mjs`; publication is a later action.
 
-```bash
-curl -X GET "http://localhost:8000/sample-transactions"
-```
+## Analysis and architecture
 
-#### Predict fraud
+Open [the analysis notebook](notebooks/fraud_analysis.ipynb) using the .venv311 interpreter. It walks through source verification, EDA, behavioural features, resampling, model comparison and error analysis. See [the architecture guide](PROJECT_ARCHITECTURE.md) for design and implementation details.
 
-```bash
-curl -X POST "http://localhost:8000/predict-fraud" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Time": 865,
-    "V1": -0.5374802762,
-    "V2": 8.5411202134,
-    "V3": 1.7172749111,
-    "V4": -1.142444037,
-    "V5": 0.8710858686,
-    "V6": -2.379534301,
-    "V7": 3.6324085605,
-    "V8": 1.4689942064,
-    "V9": 2.3140508421,
-    "V10": 0.6080150786,
-    "V11": 3.7338869247,
-    "V12": -0.2240221028,
-    "V13": -1.2259402182,
-    "V14": -0.1872434624,
-    "V15": 0.6574995181,
-    "V16": -1.1501334386,
-    "V17": -1.0286127611,
-    "V18": -0.0294838246,
-    "V19": -1.4228495895,
-    "V20": -0.8863804803,
-    "V21": -1.4464451487,
-    "V22": -1.3059306083,
-    "V23": -2.8105028234,
-    "V24": -1.5235354845,
-    "V25": 1.5057483529,
-    "V26": -1.7950689266,
-    "V27": -0.5417854048,
-    "V28": -2.0273416245,
-    "Amount": 4.4646831979
-  }'
-```
-
-### Training and Model Lifecycle
-
-- Training entrypoint: `backend/src/train.py`
-- Default dataset: `backend/data/creditcard.csv`
-- Pipeline summary:
-  1. Load + clean data
-  2. Split train/test
-  3. Apply `SMOTE` on training set
-  4. Train candidate models (`LogisticRegression`, optional `XGBClassifier`)
-  5. Evaluate and select best model by weighted ranking (recall/F1/ROC-AUC oriented)
-  6. Save artifact to `backend/models/best_model.joblib`
-- Inference uses stored scaler/model and a learned decision threshold for classification.
-
-#### E2E Training Control Flow
-
-```text
-|--------------------------------------------------------------------------------|
-|                    FRAUD DETECTION TRAINING SERVICE FLOW                       |
-|--------------------------------------------------------------------------------|
-
-Developer
-   |
-   | runs
-   v
-|--------------------------------------------------------------------------------|
-| python backend/src/train.py                                                    |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| backend/src/train.py                                                           |
-| __main__ entry point                                                           |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| train_and_select_best_model()                                                  |
-| Main training orchestration function                                           |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.utils.ensure_dirs()                                                        |
-| Creates required folders:                                                      |
-| - backend/models/                                                              |
-| - backend/reports/                                                             |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.data_loader.load_transaction_data()                                        |
-| Loads the training dataset used by the fraud model                             |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Dataset source decision                                                        |
-| - If backend/data/creditcard.csv exists: load it with pandas.read_csv()        |
-| - Otherwise: call _build_synthetic_dataset() for local fallback data           |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Raw transaction DataFrame                                                      |
-| Expected columns: Time, V1..V28, Amount, Class                                 |
-| Class is the fraud/non-fraud target label                                      |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.preprocessing.preprocess_data(df)                                           |
-| Cleans, splits, scales, and balances the dataset                                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Data cleaning                                                                   |
-| - Drop duplicate rows                                                           |
-| - Fill missing numeric values with column medians                               |
-| - Separate features from target label                                           |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| train_test_split()                                                              |
-| Creates stratified train/test partitions                                        |
-| - 80% training data                                                             |
-| - 20% test data                                                                 |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| StandardScaler                                                                  |
-| - Fit scaler on training features                                               |
-| - Transform training features                                                   |
-| - Transform test features using the same scaler                                 |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| SMOTE class balancing decision                                                  |
-| - If imbalanced-learn is available: apply SMOTE to the training set             |
-| - Otherwise: continue with scaled training data                                 |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| PreprocessArtifacts                                                             |
-| Returned training bundle:                                                       |
-| - X_train_resampled                                                             |
-| - y_train_resampled                                                             |
-| - X_test_scaled                                                                 |
-| - y_test                                                                        |
-| - scaler                                                                        |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Candidate model registry                                                        |
-| Models configured by train.py:                                                  |
-| - LogisticRegression                                                            |
-| - XGBClassifier, when xgboost imports successfully                              |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Candidate training loop                                                         |
-| For each model candidate:                                                       |
-| - model.fit(X_train_resampled, y_train_resampled)                               |
-| - pass trained model to evaluation step                                         |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.evaluate_model()                                                   |
-| Computes model quality metrics:                                                 |
-| - Accuracy                                                                      |
-| - Precision                                                                     |
-| - Recall                                                                        |
-| - F1 score                                                                      |
-| - ROC-AUC                                                                       |
-| - Precision-recall curve                                                        |
-| - Confusion matrix                                                              |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.ranking_score()                                                    |
-| Calculates fraud-focused weighted score:                                        |
-| - Recall: 35%                                                                   |
-| - Precision: 25%                                                                |
-| - F1 score: 25%                                                                 |
-| - ROC-AUC: 15%                                                                  |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Best model selection                                                            |
-| train.py tracks the candidate with the highest ranking_score()                  |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.best_f1_threshold()                                                |
-| Finds the probability decision threshold that maximizes F1 on test data         |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Model artifact construction                                                     |
-| Artifact contents:                                                              |
-| - model                                                                         |
-| - scaler                                                                        |
-| - model_name                                                                    |
-| - model_version                                                                 |
-| - decision_threshold                                                            |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| joblib.dump()                                                                   |
-| Saves trained inference artifact to:                                            |
-| backend/models/best_model.joblib                                                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Report payload construction                                                     |
-| Report contents:                                                               |
-| - selected_model                                                                |
-| - model_version                                                                 |
-| - decision_threshold                                                            |
-| - selection_score                                                               |
-| - metrics by candidate model                                                    |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.utils.write_json()                                                          |
-| Writes model reports to:                                                        |
-| - backend/reports/metrics_report.json                                           |
-| - backend/reports/evaluation_report.json                                        |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Training result                                                                 |
-| - Returns report_payload                                                        |
-| - Prints selected_model from __main__                                           |
-| - best_model.joblib is ready for src.predict.predict_transaction()              |
-|--------------------------------------------------------------------------------|
-```
-
-#### API Entrypoint to Training Fallback Control Flow
-
-```text
-|--------------------------------------------------------------------------------|
-|              FRAUD DETECTION API TO MODEL TRAINING FALLBACK FLOW               |
-|--------------------------------------------------------------------------------|
-
-Developer
-   |
-   | starts API application
-   v
-|--------------------------------------------------------------------------------|
-| python backend/app/main.py                                                      |
-| Normal runtime is typically uvicorn app.main:app from the backend folder        |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| backend/app/main.py                                                             |
-| FastAPI application entry module                                                |
-| Creates app = FastAPI(...)                                                      |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| app.add_middleware(CORSMiddleware, ...)                                         |
-| Enables frontend/backend browser calls                                          |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| app.include_router(fraud_router)                                                |
-| Registers all routes from backend/app/api/fraud_routes.py                       |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Registered API routes                                                           |
-| - GET  /                                                                        |
-| - POST /predict-fraud                                                           |
-| - GET  /prediction-logs                                                         |
-| - GET  /sample-transactions                                                     |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Route branch decision                                                           |
-| The request path determines which fraud_routes.py handler runs                  |
-|--------------------------------------------------------------------------------|
-   |
-   +------------------------------+
-   |                              |
-   | GET /                        |
-   v                              |
-|--------------------------------------------------------------------------------|
-| backend/app/main.py::health()                                                   |
-| Returns service health payload: {"status": "ok", ...}                          |
-|--------------------------------------------------------------------------------|
-
-   +------------------------------+
-   |                              |
-   | GET /sample-transactions     |
-   v                              |
-|--------------------------------------------------------------------------------|
-| fraud_routes.py::sample_transactions()                                          |
-| Calls app.services.sample_payloads.get_sample_transactions()                    |
-| Returns curated low/medium/high sample payloads for UI and API testing          |
-|--------------------------------------------------------------------------------|
-
-   +------------------------------+
-   |                              |
-   | GET /prediction-logs         |
-   v                              |
-|--------------------------------------------------------------------------------|
-| fraud_routes.py::prediction_logs(limit, db)                                     |
-| FastAPI validates query limit and opens DB session with get_db()                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| app.services.fraud_service.get_prediction_logs(db, limit)                       |
-| Queries fraud_prediction_logs ordered by created_at descending                  |
-| Returns recent prediction audit records                                         |
-|--------------------------------------------------------------------------------|
-
-   +------------------------------+
-   |                              |
-   | POST /predict-fraud          |
-   v                              |
-|--------------------------------------------------------------------------------|
-| fraud_routes.py::predict_fraud(payload, db)                                     |
-| FastAPI validates request body with FraudPredictionRequest                       |
-| FastAPI opens request-scoped DB session with get_db()                           |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| payload.model_dump()                                                            |
-| Converts validated Pydantic request into a Python dict                          |
-| Expected fields: Time, V1..V28, Amount                                          |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| app.services.fraud_service.run_prediction_and_log(payload, db)                  |
-| Coordinates ML inference and database persistence                               |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.predict.predict_transaction(payload)                                        |
-| Runs fraud scoring for a single transaction                                     |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.predict.load_model_artifact()                                               |
-| Looks for backend/models/best_model.joblib                                      |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Model artifact decision                                                         |
-| - If best_model.joblib exists: load it with joblib.load()                       |
-| - If missing: call src.train.train_and_select_best_model()                      |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Missing model fallback: train_and_select_best_model()                           |
-| The API request now triggers the same training pipeline used by train.py        |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.utils.ensure_dirs()                                                         |
-| Creates required folders:                                                       |
-| - backend/models/                                                               |
-| - backend/reports/                                                              |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.data_loader.load_transaction_data()                                         |
-| Loads backend/data/creditcard.csv when present                                  |
-| Falls back to _build_synthetic_dataset() when the CSV is missing                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Raw transaction DataFrame                                                       |
-| Expected training columns: Time, V1..V28, Amount, Class                         |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.preprocessing.preprocess_data(df)                                           |
-| - Drops duplicate rows                                                          |
-| - Fills missing numeric values with medians                                     |
-| - Splits features from Class target                                             |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| train_test_split()                                                              |
-| Builds stratified train/test sets                                               |
-| - 80% training data                                                             |
-| - 20% test data                                                                 |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| StandardScaler                                                                  |
-| - Fits on training features                                                     |
-| - Transforms training features                                                  |
-| - Transforms test features with the same fitted scaler                          |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| SMOTE class balancing decision                                                  |
-| - If imbalanced-learn is available: fit_resample() on training data             |
-| - Otherwise: continue with scaled training data                                 |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Candidate model registry                                                        |
-| Models configured by train.py:                                                  |
-| - LogisticRegression                                                            |
-| - XGBClassifier, when xgboost imports successfully                              |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Candidate training loop                                                         |
-| Each candidate model runs model.fit(X_train_resampled, y_train_resampled)       |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.evaluate_model()                                                   |
-| Calculates accuracy, precision, recall, F1, ROC-AUC, PR curve, confusion matrix |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.ranking_score()                                                    |
-| Scores candidates with fraud-focused weights                                    |
-| Recall 35%, precision 25%, F1 25%, ROC-AUC 15%                                  |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Best model selection                                                            |
-| Keeps the candidate with the highest ranking_score()                            |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.evaluate.best_f1_threshold()                                                |
-| Finds the probability decision threshold that maximizes F1                      |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| joblib.dump(model_artifact, backend/models/best_model.joblib)                   |
-| Saves model, scaler, model_name, model_version, and decision_threshold          |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| src.utils.write_json()                                                          |
-| Writes training reports:                                                        |
-| - backend/reports/metrics_report.json                                           |
-| - backend/reports/evaluation_report.json                                        |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Return to src.predict.load_model_artifact()                                     |
-| Loads the newly created best_model.joblib with joblib.load()                    |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Inference preparation                                                           |
-| - Extract model, scaler, and decision_threshold from artifact                   |
-| - Reorder request payload using FEATURE_COLUMNS                                 |
-| - Build one-row pandas DataFrame                                                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| scaler.transform(features)                                                      |
-| Applies the training-time scaler to the incoming transaction                    |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| model.predict_proba(scaled)                                                     |
-| Calculates fraud_probability for the transaction                                |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Threshold and risk mapping                                                      |
-| - fraud_probability >= decision_threshold means Fraud                           |
-| - otherwise Not Fraud                                                           |
-| - risk_from_probability() maps probability to Low, Medium, or High              |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| Prediction response from src.predict.predict_transaction()                      |
-| Returns prediction_label, fraud_probability, risk_level, model_version          |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| app.services.fraud_service.run_prediction_and_log()                             |
-| Creates FraudPredictionLog ORM object                                           |
-| Stores amount, probability, label, risk, model_version, and request payload     |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| db.add(log) -> db.commit() -> db.refresh(log)                                   |
-| Persists prediction audit record in fraud_prediction_logs                       |
-|--------------------------------------------------------------------------------|
-   |
-   v
-|--------------------------------------------------------------------------------|
-| API response                                                                    |
-| POST /predict-fraud returns the prediction payload to the frontend/client       |
-|--------------------------------------------------------------------------------|
-```
-
-### Testing
-
-```bash
-cd backend
-pytest -q
-```
-
-### Troubleshooting
-
-- `npm: command not found`
-  - Install Node.js and ensure `npm` is on your `PATH`.
-- `No module named pytest` or dependency import errors
-  - Activate your backend virtual environment and run `pip install -r requirements.txt`.
-- DB connection failures
-  - Verify `DATABASE_URL` (local) or `POSTGRES_*` values in `.env` (Docker).
-- Migration issues
-  - Run `alembic upgrade head` from `backend/` and verify DB credentials.
-
-### Interview-Ready Highlights
-
-- Built an imbalanced-fraud pipeline using metrics beyond accuracy (`Recall`, `F1`, `ROC-AUC`).
-- Combined model serving with auditable persistence for operational traceability.
-- Used migration-driven schema management (`Alembic`) for repeatable environments.
+Current limitations: research datasets are old or simulated; BankSim day granularity cannot support minute-level velocity; PCA variables cannot be interpreted as location/device fields; analyst notes are not verified labels; production applicability requires validation on the intended institution's data.

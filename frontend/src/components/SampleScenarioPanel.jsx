@@ -1,25 +1,42 @@
-// Interactive panel to load story-based threat-level sample payloads into the form.
-function SampleScenarioPanel({ samples, onApplySample }) {
+/** Load one labelled legitimate/fraud example without pretending the sample reflects prevalence. */
+export default function SampleScenarioPanel({
+  samples,
+  onApplySample,
+  disabled,
+}) {
+  const choices = [
+    samples.find((sample) => sample.actual_label === 0),
+    samples.find((sample) => sample.actual_label === 1),
+  ].filter(Boolean);
   return (
     <div className="card">
-      <h3>Threat-Level Sample Scenarios</h3>
+      <h3>Dataset examples</h3>
       <p className="muted">
-        Pick a scenario to auto-fill the 30-feature form. Each story represents a different fraud-risk pattern.
+        Original validation rows with known labels. A model can disagree; the
+        label is never supplied to prediction.
       </p>
-      <div className="scenario-grid">
-        {samples.map((sample) => (
-          <div key={sample.id} className={`scenario-card ${sample.threat_level.toLowerCase()}`}>
-            <div className="scenario-head">
-              <h4>{sample.title}</h4>
-              <span className={`badge ${sample.threat_level.toLowerCase()}`}>{sample.threat_level}</span>
-            </div>
-            <p>{sample.story}</p>
-            <button type="button" onClick={() => onApplySample(sample.payload)}>Use This Scenario</button>
-          </div>
+      <div className="button-row">
+        {/* Each button copies original publisher inputs; the model has not scored it yet. */}
+        {choices.map((sample) => (
+          <button
+            type="button"
+            className="secondary"
+            key={sample.id}
+            disabled={disabled}
+            onClick={() => onApplySample(sample.payload)}
+          >
+            Load{" "}
+            {sample.actual_label ? "labelled fraud" : "labelled legitimate"}{" "}
+            example
+          </button>
         ))}
       </div>
+      {!samples.length && (
+        <p>
+          No verified examples available. Import the dataset and train this
+          profile first.
+        </p>
+      )}
     </div>
   );
 }
-
-export default SampleScenarioPanel;

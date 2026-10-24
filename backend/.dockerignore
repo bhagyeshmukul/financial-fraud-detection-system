@@ -1,0 +1,9 @@
+# Exclude local datasets, models, tests and environments from the API image build.
+.venv*
+__pycache__
+.pytest_cache
+data
+models
+reports
+tests
+*.db

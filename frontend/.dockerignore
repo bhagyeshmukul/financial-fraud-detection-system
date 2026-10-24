@@ -1,0 +1,5 @@
+# Reinstall dependencies and rebuild assets inside Docker instead of copying laptop output.
+node_modules
+dist
+test-results
+playwright-report

@@ -1,33 +1,45 @@
-import numpy as np
+"""
+Verify serving refuses missing or mismatched saved artifacts. The API must report unavailable
+models instead of training silently during a request.
+"""
 
-import src.predict as predict_module
-from src.predict import predict_transaction
-
-
-class DummyModel:
-    def predict_proba(self, X):
-        return np.array([[0.2, 0.8]])
-
-
-class DummyScaler:
-    def transform(self, X):
-        return X
+import json
+import pytest
+from src.predict import ModelUnavailable, load_model_artifact, model_report
 
 
-def test_prediction_output_contains_required_fields():
-    predict_module.load_model_artifact = lambda: {
-        "model": DummyModel(),
-        "scaler": DummyScaler(),
-        "model_version": "test_v1",
-    }
+def test_missing_artifact_never_trains(tmp_path, monkeypatch):
+    """Verify missing artifact never trains."""
+    monkeypatch.setattr("src.predict.MODELS_DIR", tmp_path)
+    load_model_artifact.cache_clear()
+    with pytest.raises(ModelUnavailable, match="No verified"):
+        load_model_artifact("credit_card")
+    assert not list(tmp_path.iterdir())
+    load_model_artifact.cache_clear()
 
-    payload = {"Time": 1000.0, "Amount": 120.5}
-    for i in range(1, 29):
-        payload[f"V{i}"] = 0.1
 
-    result = predict_transaction(payload)
+def test_mismatched_report_rejected(tmp_path, monkeypatch):
+    """Verify mismatched report rejected."""
+    monkeypatch.setattr("src.predict.MODELS_DIR", tmp_path)
+    monkeypatch.setattr("src.predict.REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "src.predict.load_model_artifact", lambda profile: {"model_version": "served"}
+    )
+    (tmp_path / "credit_card.current.json").write_text(
+        json.dumps({"report": "report.json"})
+    )
+    (tmp_path / "report.json").write_text(json.dumps({"model_version": "different"}))
+    with pytest.raises(ModelUnavailable, match="does not match"):
+        model_report("credit_card")
 
-    assert "prediction_label" in result
-    assert "fraud_probability" in result
-    assert "risk_level" in result
-    assert 0.0 <= result["fraud_probability"] <= 1.0
+
+def test_auto_missing_manifest_is_unavailable_not_an_internal_error(
+    tmp_path, monkeypatch, card_payload
+):
+    """An Auto request must report an absent serving manifest as a dependency outage."""
+    import pandas as pd
+    from src.predict import predict_rows
+
+    monkeypatch.setattr("src.predict.MODELS_DIR", tmp_path)
+    with pytest.raises(ModelUnavailable, match="serving manifest"):
+        predict_rows(pd.DataFrame([card_payload]), "credit_card", model_choice="auto")

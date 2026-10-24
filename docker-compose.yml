@@ -1,5 +1,4 @@
-version: "3.9"
-
+# Laptop containers: private PostgreSQL, migrations, API and Vite development UI.
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,28 +6,48 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
       POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_password}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  # PostgreSQL creates the database; Alembic creates the application tables.
+  migrate:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-fraud_user}:${POSTGRES_PASSWORD:-fraud_password}@postgres:5432/${POSTGRES_DB:-fraud_db}
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: ["alembic", "upgrade", "head"]
+  # Serving reads saved models and never starts training automatically.
   backend:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-fraud_user}:${POSTGRES_PASSWORD:-fraud_password}@postgres:5432/${POSTGRES_DB:-fraud_db}
-    ports:
-      - "8000:8000"
+      WEB_CONCURRENCY: 1
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["./backend/models/v2:/app/models/v2:ro", "./backend/reports/v2:/app/reports/v2:ro"]
     depends_on:
-      - postgres
-
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+  # Vite serves development code; production uses the Nginx image.
   frontend:
-    build: ./frontend
+    image: node:24-alpine
+    working_dir: /app
+    volumes: ["./frontend:/app", "frontend_modules:/app/node_modules"]
+    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    ports:
-      - "5173:5173"
+      API_PROXY_TARGET: http://backend:8000
+    ports: ["127.0.0.1:5173:5173"]
     depends_on:
-      - backend
-
+      backend: {condition: service_started}
 volumes:
   postgres_data:
+  frontend_modules:

@@ -1,11 +1,22 @@
+# Ignore generated/private state. An ignored path can still contain valuable data.
 .DS_Store
 __pycache__/
 *.pyc
 .pytest_cache/
-.venv/
+.venv*/
 venv/
-backend/models/*.joblib
-backend/reports/*.json
+backend/models/
+backend/reports/
+backend/data/raw/
 backend/test_api.db
 node_modules/
 frontend/dist/
+.env
+.env.*
+!.env.example
+!.env.production.example
+.runtime/
+artifacts/
+test-results/
+playwright-report/
+*.log

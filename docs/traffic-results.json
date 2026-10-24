@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-23",
+  "environment": {
+    "platform": "macOS-12.7.6-x86_64-i386-64bit",
+    "memory_gb": 8,
+    "physical_cores": 2,
+    "logical_cores": 4,
+    "api_workers": 1,
+    "inference_threads_per_worker": 1,
+    "note": "Shared laptop with other applications running; observed capacity is not a cloud sizing guarantee."
+  },
+  "runs": {
+    "credit_card": {
+      "model_version": "credit_card_20261023T101223_f887ef",
+      "profile": "credit_card",
+      "target_rps": 10.0,
+      "duration_requested_s": 60.0,
+      "duration_actual_s": 60.00066171702929,
+      "successful_requests": 600,
+      "failures": 0,
+      "throughput_rps": 9.999889715044743,
+      "latency_p50_ms": 31.719520513433963,
+      "latency_p95_ms": 82.18429216358345,
+      "latency_p99_ms": 283.6578528297827,
+      "peak_observed_rss_mb": 157.23828125,
+      "memory_scope": "supplied server PID and descendants",
+      "errors": [],
+      "latency_scope": "scheduled arrival through response, including client concurrency queue",
+      "memory_sampling_interval_s": 1
+    },
+    "banksim": {
+      "model_version": "banksim_20261023T102611_0ebf06",
+      "profile": "banksim",
+      "target_rps": 10.0,
+      "duration_requested_s": 60.0,
+      "duration_actual_s": 60.00053675699746,
+      "successful_requests": 600,
+      "failures": 0,
+      "throughput_rps": 9.999910541300716,
+      "latency_p50_ms": 60.816194978542626,
+      "latency_p95_ms": 477.8045628132512,
+      "latency_p99_ms": 1363.384355996968,
+      "peak_observed_rss_mb": 300.0546875,
+      "memory_scope": "supplied server PID and descendants",
+      "errors": [],
+      "latency_scope": "scheduled arrival through response, including client concurrency queue",
+      "memory_sampling_interval_s": 1
+    }
+  }
+}

@@ -1,13 +1,16 @@
+# Exact serving versions recorded in artifacts; upgrades require compatibility checks or retraining.
 fastapi==0.115.12
 uvicorn[standard]==0.34.2
+pydantic==2.12.5
+python-multipart==0.0.22
 pandas==2.2.3
 numpy==2.0.2
+scipy==1.17.1
 scikit-learn==1.5.2
 xgboost==2.1.2
 imbalanced-learn==0.12.4
 sqlalchemy==2.0.40
 alembic==1.15.2
-psycopg2-binary
+psycopg2-binary==2.9.11
 joblib==1.4.2
-pytest==8.3.5
-httpx==0.28.1
+certifi==2026.10.19

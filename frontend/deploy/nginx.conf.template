@@ -1,0 +1,36 @@
+# Serve React and proxy API calls with a token kept on this server.
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 6m;
+    auth_basic "Fraud Signal";
+    auth_basic_user_file /tmp/fraud.htpasswd;
+
+    location /health/live { auth_basic off; proxy_pass http://backend:8000; }
+    # Token-only ingress for the private Sites server-to-server proxy.
+    location /service/ {
+        auth_basic off;
+        proxy_pass http://backend:8000/;
+        proxy_set_header Authorization $http_authorization;
+        proxy_read_timeout 60s;
+    }
+    # Browser login is already checked; supply the server token to Python.
+    location /api/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Authorization "Bearer ${API_ACCESS_TOKEN}";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+    location /health/ready {
+        proxy_pass http://backend:8000;
+        proxy_set_header Authorization "Bearer ${API_ACCESS_TOKEN}";
+    }
+    # Fall back to index.html for React routes while serving actual assets directly.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header X-Content-Type-Options nosniff;
+    }
+}

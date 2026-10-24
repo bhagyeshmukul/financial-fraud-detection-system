@@ -1,0 +1,806 @@
+{
+  "credit_card": {
+    "profile": "credit_card",
+    "model_version": "credit_card_20261023T134833_f6b9b2",
+    "selected_model": "random_forest",
+    "decision_threshold": 0.09447494199340721,
+    "feature_version": "2.0",
+    "dataset": {
+      "profile": "credit_card",
+      "source": "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud",
+      "source_updated": "2018-03-23T01:17:27.913Z",
+      "license": "Database: Open Database, Contents: Database Contents",
+      "sha256": "76274b691b16a6c49d3f159c883398e03ccd6d1ee12d9d8ee38f4b4b98551a89",
+      "rows": 284807,
+      "frauds": 492,
+      "simulated": false,
+      "imported_at": "2026-10-23T09:59:02.288304+00:00"
+    },
+    "dependencies": {
+      "numpy": "2.0.2",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.5.2",
+      "xgboost": "2.1.2",
+      "imbalanced-learn": "0.12.4",
+      "joblib": "1.4.2",
+      "python": "3.11.17"
+    },
+    "partitions": {
+      "fit": {
+        "rows": 110813,
+        "frauds": 234,
+        "start": 0.0,
+        "end": 72157.0
+      },
+      "calibration": {
+        "rows": 33061,
+        "frauds": 37,
+        "start": 72158.0,
+        "end": 86113.0
+      },
+      "router_training": {
+        "rows": 18499,
+        "frauds": 67,
+        "start": 86115.0,
+        "end": 115551.0
+      },
+      "validation": {
+        "rows": 61465,
+        "frauds": 59,
+        "start": 115553.0,
+        "end": 143907.0
+      },
+      "test": {
+        "rows": 59888,
+        "frauds": 76,
+        "start": 143908.0,
+        "end": 172792.0
+      }
+    },
+    "selection_rule": "Maximum validation recall subject to precision >=80% and accuracy >=94%; routing must strictly beat the best eligible individual. Threshold ties prefer precision, then higher threshold. If no individual qualifies, champion uses highest validation AP with an explicitly ineligible F1 threshold.",
+    "evaluation_note": "Historical benchmark comparison: this test period was inspected in the earlier project. No test labels choose router structure, thresholds or Auto policy; this is not a fresh independent test.",
+    "router": {
+      "algorithm": "Multi-output decision tree estimating class-balanced squared expert error",
+      "max_depth": 3,
+      "min_samples_leaf": 925,
+      "candidate_order": [
+        "logistic_regression",
+        "random_forest",
+        "xgboost",
+        "xgboost_without_resampling"
+      ],
+      "tie_break": "First candidate in recorded order",
+      "validation_routes": {
+        "logistic_regression": 42011,
+        "random_forest": 5772,
+        "xgboost": 13682,
+        "xgboost_without_resampling": 0
+      },
+      "test_routes": {
+        "logistic_regression": 43272,
+        "random_forest": 4592,
+        "xgboost": 12024,
+        "xgboost_without_resampling": 0
+      },
+      "note": "Transaction patterns select a candidate. No named fraud subtype is predicted."
+    },
+    "quality_goals": {
+      "accuracy": 0.94,
+      "precision": 0.8,
+      "recall": 0.8
+    },
+    "quality_goals_met": {
+      "accuracy": true,
+      "precision": true,
+      "recall": false
+    },
+    "models": {
+      "logistic_regression": {
+        "validation": {
+          "samples": 61465,
+          "frauds": 59,
+          "threshold": 0.7556598696220369,
+          "accuracy": 0.999463109086472,
+          "precision": 0.8095238095238095,
+          "recall": 0.576271186440678,
+          "f1_score": 0.6732673267326733,
+          "roc_auc": 0.9501809849089997,
+          "average_precision": 0.6301850917657711,
+          "pr_auc": 0.6208853715675243,
+          "brier_score": 0.0005674837961623484,
+          "confusion_matrix": [
+            [
+              61398,
+              8
+            ],
+            [
+              25,
+              34
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 59888,
+          "frauds": 76,
+          "threshold": 0.7556598696220369,
+          "accuracy": 0.9993988779054235,
+          "precision": 0.9,
+          "recall": 0.5921052631578947,
+          "f1_score": 0.7142857142857143,
+          "roc_auc": 0.9518519871034505,
+          "average_precision": 0.6999682602383704,
+          "pr_auc": 0.6929331610354974,
+          "brier_score": 0.0005762251552698292,
+          "confusion_matrix": [
+            [
+              59807,
+              5
+            ],
+            [
+              31,
+              45
+            ]
+          ]
+        },
+        "resampling": "SMOTE"
+      },
+      "random_forest": {
+        "validation": {
+          "samples": 61465,
+          "frauds": 59,
+          "threshold": 0.09447494199340721,
+          "accuracy": 0.9996908809891808,
+          "precision": 0.9,
+          "recall": 0.7627118644067796,
+          "f1_score": 0.8256880733944955,
+          "roc_auc": 0.9468337163541133,
+          "average_precision": 0.7095284800985594,
+          "pr_auc": 0.7070422599535725,
+          "brier_score": 0.0003442910377112707,
+          "confusion_matrix": [
+            [
+              61401,
+              5
+            ],
+            [
+              14,
+              45
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 59888,
+          "frauds": 76,
+          "threshold": 0.09447494199340721,
+          "accuracy": 0.999599251936949,
+          "precision": 0.9193548387096774,
+          "recall": 0.75,
+          "f1_score": 0.8260869565217391,
+          "roc_auc": 0.9528736092387726,
+          "average_precision": 0.8006324264715288,
+          "pr_auc": 0.8004583069166845,
+          "brier_score": 0.0003931021586874915,
+          "confusion_matrix": [
+            [
+              59807,
+              5
+            ],
+            [
+              19,
+              57
+            ]
+          ]
+        },
+        "resampling": "SMOTE"
+      },
+      "xgboost": {
+        "validation": {
+          "samples": 61465,
+          "frauds": 59,
+          "threshold": 0.791883079466938,
+          "accuracy": 0.9996420727243146,
+          "precision": 0.8490566037735849,
+          "recall": 0.7627118644067796,
+          "f1_score": 0.8035714285714286,
+          "roc_auc": 0.9553991025003353,
+          "average_precision": 0.7540788844581169,
+          "pr_auc": 0.7534141912280978,
+          "brier_score": 0.0005198537604363923,
+          "confusion_matrix": [
+            [
+              61398,
+              8
+            ],
+            [
+              14,
+              45
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 59888,
+          "frauds": 76,
+          "threshold": 0.791883079466938,
+          "accuracy": 0.9994322735773443,
+          "precision": 0.828125,
+          "recall": 0.6973684210526315,
+          "f1_score": 0.7571428571428571,
+          "roc_auc": 0.9630702517009435,
+          "average_precision": 0.7714536433903989,
+          "pr_auc": 0.7710798610892028,
+          "brier_score": 0.0005361600409640744,
+          "confusion_matrix": [
+            [
+              59801,
+              11
+            ],
+            [
+              23,
+              53
+            ]
+          ]
+        },
+        "resampling": "SMOTE"
+      },
+      "xgboost_without_resampling": {
+        "validation": {
+          "samples": 61465,
+          "frauds": 59,
+          "threshold": 0.7832869554294106,
+          "accuracy": 0.9995932644594485,
+          "precision": 0.8541666666666666,
+          "recall": 0.6949152542372882,
+          "f1_score": 0.7663551401869159,
+          "roc_auc": 0.9769047578302126,
+          "average_precision": 0.7498728443888547,
+          "pr_auc": 0.7490881139089111,
+          "brier_score": 0.00040163373458837215,
+          "confusion_matrix": [
+            [
+              61399,
+              7
+            ],
+            [
+              18,
+              41
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 59888,
+          "frauds": 76,
+          "threshold": 0.7832869554294106,
+          "accuracy": 0.9995324605931072,
+          "precision": 0.9,
+          "recall": 0.7105263157894737,
+          "f1_score": 0.7941176470588235,
+          "roc_auc": 0.9746941733220231,
+          "average_precision": 0.7911961322856914,
+          "pr_auc": 0.790946264798419,
+          "brier_score": 0.0004235096298948873,
+          "confusion_matrix": [
+            [
+              59806,
+              6
+            ],
+            [
+              22,
+              54
+            ]
+          ]
+        },
+        "resampling": "none"
+      },
+      "router": {
+        "validation": {
+          "samples": 61465,
+          "frauds": 59,
+          "threshold": 0.7991811369945094,
+          "accuracy": 0.999479378508094,
+          "precision": 0.8,
+          "recall": 0.6101694915254238,
+          "f1_score": 0.6923076923076923,
+          "roc_auc": 0.9286883024184133,
+          "average_precision": 0.6520999274032941,
+          "pr_auc": 0.6430580506373668,
+          "brier_score": 0.0005931529264851039,
+          "confusion_matrix": [
+            [
+              61397,
+              9
+            ],
+            [
+              23,
+              36
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 59888,
+          "frauds": 76,
+          "threshold": 0.7991811369945094,
+          "accuracy": 0.999348784397542,
+          "precision": 0.8363636363636363,
+          "recall": 0.6052631578947368,
+          "f1_score": 0.7022900763358778,
+          "roc_auc": 0.9381784415730694,
+          "average_precision": 0.6871462664282451,
+          "pr_auc": 0.6801248086948576,
+          "brier_score": 0.0006275338149115248,
+          "confusion_matrix": [
+            [
+              59803,
+              9
+            ],
+            [
+              30,
+              46
+            ]
+          ]
+        },
+        "resampling": "routes separately calibrated candidates"
+      }
+    },
+    "auto_policy": {
+      "available": true,
+      "policy": "random_forest",
+      "baseline": "random_forest",
+      "router_promoted": false,
+      "reason": "Router did not exceed the strongest eligible individual's validation recall; Auto uses that individual.",
+      "test": {
+        "samples": 59888,
+        "frauds": 76,
+        "threshold": 0.09447494199340721,
+        "accuracy": 0.999599251936949,
+        "precision": 0.9193548387096774,
+        "recall": 0.75,
+        "f1_score": 0.8260869565217391,
+        "roc_auc": 0.9528736092387726,
+        "average_precision": 0.8006324264715288,
+        "pr_auc": 0.8004583069166845,
+        "brier_score": 0.0003931021586874915,
+        "confusion_matrix": [
+          [
+            59807,
+            5
+          ],
+          [
+            19,
+            57
+          ]
+        ]
+      },
+      "validation": {
+        "samples": 61465,
+        "frauds": 59,
+        "threshold": 0.09447494199340721,
+        "accuracy": 0.9996908809891808,
+        "precision": 0.9,
+        "recall": 0.7627118644067796,
+        "f1_score": 0.8256880733944955,
+        "roc_auc": 0.9468337163541133,
+        "average_precision": 0.7095284800985594,
+        "pr_auc": 0.7070422599535725,
+        "brier_score": 0.0003442910377112707,
+        "confusion_matrix": [
+          [
+            61401,
+            5
+          ],
+          [
+            14,
+            45
+          ]
+        ],
+        "eligible": true
+      }
+    }
+  },
+  "banksim": {
+    "profile": "banksim",
+    "model_version": "banksim_20261023T135402_086215",
+    "selected_model": "xgboost_without_resampling",
+    "decision_threshold": 0.05811225275713518,
+    "feature_version": "2.0",
+    "dataset": {
+      "profile": "banksim",
+      "source": "https://www.kaggle.com/datasets/ealaxi/banksim1",
+      "source_updated": "2017-07-11T14:48:56.27Z",
+      "license": "CC BY-NC-SA 4.0",
+      "sha256": "e37006f76d993bfaec3a02d717b4f0bdc1ebfa5d36449e91fb7c07e225278377",
+      "rows": 594643,
+      "frauds": 7200,
+      "simulated": true,
+      "imported_at": "2026-10-23T09:58:27.354209+00:00"
+    },
+    "dependencies": {
+      "numpy": "2.0.2",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.5.2",
+      "xgboost": "2.1.2",
+      "imbalanced-learn": "0.12.4",
+      "joblib": "1.4.2",
+      "python": "3.11.17"
+    },
+    "partitions": {
+      "fit": {
+        "rows": 210430,
+        "frauds": 2880,
+        "start": 0.0,
+        "end": 71.0
+      },
+      "calibration": {
+        "rows": 60058,
+        "frauds": 720,
+        "start": 72.0,
+        "end": 89.0
+      },
+      "router_training": {
+        "rows": 62104,
+        "frauds": 720,
+        "start": 90.0,
+        "end": 107.0
+      },
+      "validation": {
+        "rows": 128820,
+        "frauds": 1440,
+        "start": 108.0,
+        "end": 143.0
+      },
+      "test": {
+        "rows": 133231,
+        "frauds": 1440,
+        "start": 144.0,
+        "end": 179.0
+      }
+    },
+    "selection_rule": "Maximum validation recall subject to precision >=80% and accuracy >=94%; routing must strictly beat the best eligible individual. Threshold ties prefer precision, then higher threshold. If no individual qualifies, champion uses highest validation AP with an explicitly ineligible F1 threshold.",
+    "evaluation_note": "Historical benchmark comparison: this test period was inspected in the earlier project. No test labels choose router structure, thresholds or Auto policy; this is not a fresh independent test.",
+    "router": {
+      "algorithm": "Multi-output decision tree estimating class-balanced squared expert error",
+      "max_depth": 3,
+      "min_samples_leaf": 3106,
+      "candidate_order": [
+        "logistic_regression",
+        "random_forest",
+        "xgboost",
+        "xgboost_without_resampling"
+      ],
+      "tie_break": "First candidate in recorded order",
+      "validation_routes": {
+        "logistic_regression": 102551,
+        "random_forest": 6276,
+        "xgboost": 19993,
+        "xgboost_without_resampling": 0
+      },
+      "test_routes": {
+        "logistic_regression": 105679,
+        "random_forest": 6617,
+        "xgboost": 20935,
+        "xgboost_without_resampling": 0
+      },
+      "note": "Transaction patterns select a candidate. No named fraud subtype is predicted."
+    },
+    "quality_goals": {
+      "accuracy": 0.94,
+      "precision": 0.8,
+      "recall": 0.8
+    },
+    "quality_goals_met": {
+      "accuracy": true,
+      "precision": true,
+      "recall": false
+    },
+    "models": {
+      "logistic_regression": {
+        "validation": {
+          "samples": 128820,
+          "frauds": 1440,
+          "threshold": 0.3229845191990138,
+          "accuracy": 0.9944573823940382,
+          "precision": 0.8014950166112956,
+          "recall": 0.6701388888888888,
+          "f1_score": 0.7299546142208775,
+          "roc_auc": 0.9939116663177543,
+          "average_precision": 0.7679382497545053,
+          "pr_auc": 0.7684658688192947,
+          "brier_score": 0.004470466312002437,
+          "confusion_matrix": [
+            [
+              127141,
+              239
+            ],
+            [
+              475,
+              965
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 133231,
+          "frauds": 1440,
+          "threshold": 0.3229845191990138,
+          "accuracy": 0.9948510481794778,
+          "precision": 0.8372093023255814,
+          "recall": 0.65,
+          "f1_score": 0.7318217357310399,
+          "roc_auc": 0.9935146895041729,
+          "average_precision": 0.7797720775732198,
+          "pr_auc": 0.7796899764247239,
+          "brier_score": 0.004333439463085742,
+          "confusion_matrix": [
+            [
+              131609,
+              182
+            ],
+            [
+              504,
+              936
+            ]
+          ]
+        },
+        "resampling": "SMOTENC"
+      },
+      "random_forest": {
+        "validation": {
+          "samples": 128820,
+          "frauds": 1440,
+          "threshold": 0.5637950357044724,
+          "accuracy": 0.9947601304145319,
+          "precision": 0.8033306899286281,
+          "recall": 0.7034722222222223,
+          "f1_score": 0.7500925583117364,
+          "roc_auc": 0.994109027995848,
+          "average_precision": 0.809404523733287,
+          "pr_auc": 0.8093581548414283,
+          "brier_score": 0.004706682581589444,
+          "confusion_matrix": [
+            [
+              127132,
+              248
+            ],
+            [
+              427,
+              1013
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 133231,
+          "frauds": 1440,
+          "threshold": 0.5637950357044724,
+          "accuracy": 0.9948585539401491,
+          "precision": 0.8268398268398268,
+          "recall": 0.6631944444444444,
+          "f1_score": 0.7360308285163777,
+          "roc_auc": 0.993849128439052,
+          "average_precision": 0.8011118856144792,
+          "pr_auc": 0.8010651979764609,
+          "brier_score": 0.004580296452882638,
+          "confusion_matrix": [
+            [
+              131591,
+              200
+            ],
+            [
+              485,
+              955
+            ]
+          ]
+        },
+        "resampling": "SMOTENC"
+      },
+      "xgboost": {
+        "validation": {
+          "samples": 128820,
+          "frauds": 1440,
+          "threshold": 0.5672413204320033,
+          "accuracy": 0.9949309113491693,
+          "precision": 0.8015325670498085,
+          "recall": 0.7263888888888889,
+          "f1_score": 0.7621129326047359,
+          "roc_auc": 0.9946137459438948,
+          "average_precision": 0.83482080549655,
+          "pr_auc": 0.8347999700335776,
+          "brier_score": 0.00466332046327048,
+          "confusion_matrix": [
+            [
+              127121,
+              259
+            ],
+            [
+              394,
+              1046
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 133231,
+          "frauds": 1440,
+          "threshold": 0.5672413204320033,
+          "accuracy": 0.9951137498029737,
+          "precision": 0.8246913580246914,
+          "recall": 0.6958333333333333,
+          "f1_score": 0.7548022598870057,
+          "roc_auc": 0.994400611890544,
+          "average_precision": 0.8262947040273941,
+          "pr_auc": 0.8262696852935131,
+          "brier_score": 0.004575582472850913,
+          "confusion_matrix": [
+            [
+              131578,
+              213
+            ],
+            [
+              438,
+              1002
+            ]
+          ]
+        },
+        "resampling": "SMOTENC"
+      },
+      "xgboost_without_resampling": {
+        "validation": {
+          "samples": 128820,
+          "frauds": 1440,
+          "threshold": 0.05811225275713518,
+          "accuracy": 0.9951560316721006,
+          "precision": 0.8004418262150221,
+          "recall": 0.7548611111111111,
+          "f1_score": 0.7769835596854896,
+          "roc_auc": 0.9950739339639922,
+          "average_precision": 0.8465794371594152,
+          "pr_auc": 0.8465963835855127,
+          "brier_score": 0.003985142363299529,
+          "confusion_matrix": [
+            [
+              127109,
+              271
+            ],
+            [
+              353,
+              1087
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 133231,
+          "frauds": 1440,
+          "threshold": 0.05811225275713518,
+          "accuracy": 0.9952113246917009,
+          "precision": 0.8098918083462133,
+          "recall": 0.7277777777777777,
+          "f1_score": 0.7666422823701536,
+          "roc_auc": 0.9948239700232439,
+          "average_precision": 0.8385546595340364,
+          "pr_auc": 0.8385645977304013,
+          "brier_score": 0.004047573248099543,
+          "confusion_matrix": [
+            [
+              131545,
+              246
+            ],
+            [
+              392,
+              1048
+            ]
+          ]
+        },
+        "resampling": "none"
+      },
+      "router": {
+        "validation": {
+          "samples": 128820,
+          "frauds": 1440,
+          "threshold": 0.5637950357044724,
+          "accuracy": 0.9947834187238006,
+          "precision": 0.8014128728414442,
+          "recall": 0.7090277777777778,
+          "f1_score": 0.7523949889462048,
+          "roc_auc": 0.9943388221594182,
+          "average_precision": 0.8161346763889923,
+          "pr_auc": 0.8160926484144908,
+          "brier_score": 0.004635806867279457,
+          "confusion_matrix": [
+            [
+              127127,
+              253
+            ],
+            [
+              419,
+              1021
+            ]
+          ],
+          "eligible": true
+        },
+        "test": {
+          "samples": 133231,
+          "frauds": 1440,
+          "threshold": 0.5637950357044724,
+          "accuracy": 0.9948285308974638,
+          "precision": 0.8201193520886616,
+          "recall": 0.6680555555555555,
+          "f1_score": 0.736318407960199,
+          "roc_auc": 0.9939725061313409,
+          "average_precision": 0.8076551817540317,
+          "pr_auc": 0.807611425294998,
+          "brier_score": 0.004515188506543445,
+          "confusion_matrix": [
+            [
+              131580,
+              211
+            ],
+            [
+              478,
+              962
+            ]
+          ]
+        },
+        "resampling": "routes separately calibrated candidates"
+      }
+    },
+    "auto_policy": {
+      "available": true,
+      "policy": "xgboost_without_resampling",
+      "baseline": "xgboost_without_resampling",
+      "router_promoted": false,
+      "reason": "Router did not exceed the strongest eligible individual's validation recall; Auto uses that individual.",
+      "test": {
+        "samples": 133231,
+        "frauds": 1440,
+        "threshold": 0.05811225275713518,
+        "accuracy": 0.9952113246917009,
+        "precision": 0.8098918083462133,
+        "recall": 0.7277777777777777,
+        "f1_score": 0.7666422823701536,
+        "roc_auc": 0.9948239700232439,
+        "average_precision": 0.8385546595340364,
+        "pr_auc": 0.8385645977304013,
+        "brier_score": 0.004047573248099543,
+        "confusion_matrix": [
+          [
+            131545,
+            246
+          ],
+          [
+            392,
+            1048
+          ]
+        ]
+      },
+      "validation": {
+        "samples": 128820,
+        "frauds": 1440,
+        "threshold": 0.05811225275713518,
+        "accuracy": 0.9951560316721006,
+        "precision": 0.8004418262150221,
+        "recall": 0.7548611111111111,
+        "f1_score": 0.7769835596854896,
+        "roc_auc": 0.9950739339639922,
+        "average_precision": 0.8465794371594152,
+        "pr_auc": 0.8465963835855127,
+        "brier_score": 0.003985142363299529,
+        "confusion_matrix": [
+          [
+            127109,
+            271
+          ],
+          [
+            353,
+            1087
+          ]
+        ],
+        "eligible": true
+      }
+    }
+  }
+}

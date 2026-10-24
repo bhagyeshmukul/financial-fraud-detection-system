@@ -1,0 +1,18 @@
+#!/bin/sh
+# Project interpreter; macOS XGBoost needs the OpenMP shipped with Scikit-Learn.
+set -eu
+task_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+python_bin="${FRAUD_PYTHON:-$task_root/.venv311/bin/python}"
+if [ ! -x "$python_bin" ]; then
+  echo "Create the environment first: uv venv --python 3.11 .venv311" >&2
+  exit 1
+fi
+# Expose macOS wheel-shipped OpenMP before importing XGBoost.
+if [ "$(uname -s)" = "Darwin" ]; then
+  task_native=$("$python_bin" -c 'import sysconfig; print(sysconfig.get_path("platlib") + "/sklearn/.dylibs")')
+  export DYLD_LIBRARY_PATH="$task_native${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+fi
+# Make backend packages importable without installing the project as a package.
+export PYTHONPATH="$task_root/backend${PYTHONPATH:+:$PYTHONPATH}"
+# Replace the wrapper while preserving signals and the requested Python exit status.
+exec "$python_bin" "$@"

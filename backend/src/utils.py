@@ -1,48 +1,63 @@
-"""Shared constants and utility helpers for model pipeline and reporting."""
+"""
+Share paths, feature identity, JSON writing and risk-label rules. Environment variables let the
+same code use laptop directories or mounted server directories.
+"""
 
 from __future__ import annotations
-
 import json
+import os
+import tempfile
 from pathlib import Path
-from typing import Any
-
 import numpy as np
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODELS_DIR = PROJECT_ROOT / "models"
-REPORTS_DIR = PROJECT_ROOT / "reports"
-
+DATA_DIR = Path(os.getenv("FRAUD_DATA_DIR", PROJECT_ROOT / "data" / "raw"))
+MODELS_DIR = Path(os.getenv("FRAUD_MODELS_DIR", PROJECT_ROOT / "models" / "v2"))
+REPORTS_DIR = Path(os.getenv("FRAUD_REPORTS_DIR", PROJECT_ROOT / "reports" / "v2"))
 FEATURE_COLUMNS = ["Time", *(f"V{i}" for i in range(1, 29)), "Amount"]
+FEATURE_VERSION = "2.0"
 
 
-def ensure_dirs() -> None:
-    """Create model/report directories if they do not already exist."""
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+def ensure_dirs():
+    """
+    Create configured data, model and report directories when an explicit training/import
+    command needs them.
+    """
+    # Create each configured storage directory, including its missing parents, when explicitly needed.
+    for path in (DATA_DIR, MODELS_DIR, REPORTS_DIR):
+        path.mkdir(parents=True, exist_ok=True)
 
 
-def risk_from_probability(probability: float) -> str:
-    """Map probability into user-facing risk category buckets."""
-    if probability >= 0.75:
+def risk_from_probability(probability: float, threshold: float = 0.5) -> str:
+    """Map a score to High at the alert threshold, Medium at half that threshold, otherwise Low."""
+    if probability >= threshold:
         return "High"
-    if probability >= 0.40:
-        return "Medium"
-    return "Low"
+    return "Medium" if probability >= threshold / 2 else "Low"
 
 
-def to_serializable(value: Any) -> Any:
-    """Convert NumPy scalar/array values into JSON-serializable types."""
-    if isinstance(value, (np.integer, np.int32, np.int64)):
-        return int(value)
-    if isinstance(value, (np.floating, np.float32, np.float64)):
-        return float(value)
+def to_serializable(value):
+    """
+    Convert NumPy values and paths to ordinary JSON-compatible values without hiding unsupported
+    types.
+    """
+    if isinstance(value, np.generic):
+        return value.item()
     if isinstance(value, np.ndarray):
         return value.tolist()
-    return value
+    if isinstance(value, Path):
+        return str(value)
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
 
 
-def write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write normalized JSON payload to disk using UTF-8 encoding."""
-    normalized = json.loads(json.dumps(payload, default=to_serializable))
-    path.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+def write_json(path: Path, payload):
+    """
+    Write complete JSON to a temporary file and atomically replace the destination so readers
+    never see half a document.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        json.dump(payload, stream, default=to_serializable, allow_nan=False, indent=2)
+    # Research artifacts contain no secrets and must be readable by container UID 10001.
+    temporary.chmod(0o644)
+    temporary.replace(path)
